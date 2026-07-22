@@ -369,9 +369,9 @@ def make_overlay(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
         Overlay predicted scratch mask on the original image.
     """
 
-    """Create green color mask"""
+    """Create red color mask"""
     color = np.zeros_like(image)
-    color[mask > 0] = (0, 255, 0)
+    color[mask > 0] = (0, 0, 255)
 
     """Find active mask pixels"""
     overlay = image.copy()
@@ -380,9 +380,9 @@ def make_overlay(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Blend original image and green mask only on scratch pixels"""
     overlay[active] = cv2.addWeighted(
         image,
-        0.65,
+        0.7,
         color,
-        0.35,
+        0.3,
         0
     )[active]
 
