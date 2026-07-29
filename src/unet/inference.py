@@ -54,32 +54,63 @@ IMAGENET_STD  = np.asarray(IMAGENET_STD_VALUES, dtype=np.float32)
 
 class OnnxUnetModel:
     """
-        Small adapter so ONNX Runtime models can be called like PyTorch models.
+        Small adapter for ONNX Runtime U-Net inference.
     """
 
-    def __init__(self, model_path: Path) -> None:
+    runtime_name = "onnx"
+    supports_numpy = True
+
+    def __init__(self, model_path: Path, device: torch.device) -> None:
         import onnxruntime as ort
 
         providers = ["CPUExecutionProvider"]
+        available_providers = ort.get_available_providers()
+        if (
+            device.type == "cuda"
+            and "CUDAExecutionProvider" in available_providers
+        ):
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
         self.session = ort.InferenceSession(str(model_path), providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.output_name = self.session.get_outputs()[0].name
         self.input_shape = self.session.get_inputs()[0].shape
 
-    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
-        input_array = tensor.detach().cpu().numpy().astype(np.float32)
+    def supports_batch_size(self, batch_size: int) -> bool:
+        """
+            Return whether the exported ONNX input accepts this batch size.
+        """
+
+        batch_dim = self.input_shape[0]
+        return not isinstance(batch_dim, int) or batch_dim == batch_size
+
+    def predict_logits_numpy(self, input_array: np.ndarray) -> np.ndarray:
+        """
+            Run ONNX Runtime directly on an NCHW float32 numpy batch.
+        """
+
+        input_array = np.asarray(input_array, dtype=np.float32)
         logits = self.session.run(
             [self.output_name],
             {self.input_name: input_array},
         )[0]
+
+        return np.asarray(logits, dtype=np.float32)
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        input_array = tensor.detach().cpu().numpy().astype(np.float32)
+        logits = self.predict_logits_numpy(input_array)
 
         return torch.from_numpy(logits).to(tensor.device)
 
 
 class OpenVINOUnetModel:
     """
-        Small adapter so OpenVINO IR models can be called like PyTorch models.
+        Small adapter for OpenVINO Runtime U-Net inference.
     """
+
+    runtime_name = "openvino"
+    supports_numpy = True
 
     def __init__(self, model_path: Path) -> None:
         import openvino as ov
@@ -90,9 +121,27 @@ class OpenVINOUnetModel:
         self.output = self.compiled_model.output(0)
         self.input_shape = list(self.input.partial_shape)
 
+    def supports_batch_size(self, batch_size: int) -> bool:
+        """
+            Return whether the OpenVINO input accepts this batch size.
+        """
+
+        batch_dim = self.input_shape[0]
+        return not batch_dim.is_static or int(batch_dim.get_length()) == batch_size
+
+    def predict_logits_numpy(self, input_array: np.ndarray) -> np.ndarray:
+        """
+            Run OpenVINO Runtime directly on an NCHW float32 numpy batch.
+        """
+
+        input_array = np.asarray(input_array, dtype=np.float32)
+        logits = self.compiled_model({self.input: input_array})[self.output]
+
+        return np.asarray(logits, dtype=np.float32)
+
     def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
         input_array = tensor.detach().cpu().numpy().astype(np.float32)
-        logits = self.compiled_model({self.input: input_array})[self.output]
+        logits = self.predict_logits_numpy(input_array)
 
         return torch.from_numpy(logits).to(tensor.device)
 
@@ -234,7 +283,7 @@ def load_model(
 
     """Load ONNX model with ONNX Runtime"""
     if model_path.suffix.lower() == ".onnx":
-        model = OnnxUnetModel(model_path)
+        model = OnnxUnetModel(model_path, device)
         shape_size = model.input_shape[-1]
         input_size = img_size or (
             int(shape_size)
@@ -326,6 +375,44 @@ def preprocess(
     return tensor.to(device)
 
 
+def preprocess_numpy(image: np.ndarray, img_size: int) -> np.ndarray:
+    """
+        Convert OpenCV BGR image to normalized NCHW float32 numpy batch.
+    """
+
+    """Convert BGR to RGB"""
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    """Resize image to model input size"""
+    resized = cv2.resize(
+        rgb,
+        (img_size, img_size),
+        interpolation=cv2.INTER_LINEAR
+    )
+
+    """Normalize and convert HWC image to NCHW numpy batch"""
+    normalized = (
+        resized.astype(np.float32) / 255.0 - IMAGENET_MEAN
+    ) / IMAGENET_STD
+
+    return normalized.transpose(2, 0, 1)[None, ...].astype(np.float32)
+
+
+def sigmoid_numpy(logits: np.ndarray) -> np.ndarray:
+    """
+        Compute sigmoid in numpy and return float32 probabilities.
+    """
+
+    logits = np.asarray(logits, dtype=np.float32)
+    probabilities = np.empty_like(logits, dtype=np.float32)
+    positive = logits >= 0
+    probabilities[positive] = 1.0 / (1.0 + np.exp(-logits[positive]))
+    exp_logits = np.exp(logits[~positive])
+    probabilities[~positive] = exp_logits / (1.0 + exp_logits)
+
+    return probabilities
+
+
 @torch.no_grad()
 def predict(
     model: torch.nn.Module,
@@ -344,14 +431,18 @@ def predict(
     """Store original image size"""
     h, w = image.shape[:2]
 
-    """Preprocess image for U-Net"""
-    tensor = preprocess(image, img_size, device)
+    if getattr(model, "supports_numpy", False):
+        """Run exported runtime directly without torch tensor conversion"""
+        input_array = preprocess_numpy(image, img_size)
+        logits = model.predict_logits_numpy(input_array)
+        prob = sigmoid_numpy(logits)[0, 0]
+    else:
+        """Preprocess image for PyTorch U-Net"""
+        tensor = preprocess(image, img_size, device)
 
-    """Forward pass"""
-    logits = model(tensor)
-
-    """Convert logits to probability map"""
-    prob = torch.sigmoid(logits).squeeze().cpu().numpy()
+        """Forward pass and convert logits to probability map"""
+        logits = model(tensor)
+        prob = torch.sigmoid(logits).squeeze().cpu().numpy()
 
     """Resize probability map back to original image size"""
     prob = cv2.resize(

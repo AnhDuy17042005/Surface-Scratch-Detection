@@ -10,6 +10,8 @@
 """
 
 import argparse
+import csv
+import json
 import os
 import sys
 import time
@@ -83,6 +85,82 @@ def parse_args():
         p.error("--epochs must be at least 1")
 
     return args
+
+
+def create_history() -> dict[str, list[float | int]]:
+    """
+        Create the per-epoch training history structure.
+    """
+
+    return {
+        "epoch": [],
+        "train_loss": [],
+        "train_iou": [],
+        "train_dice": [],
+        "val_loss": [],
+        "val_iou": [],
+        "val_dice": [],
+        "lr": [],
+        "epoch_time": [],
+    }
+
+
+def append_history(
+    history: dict[str, list[float | int]],
+    epoch: int,
+    train_loss: float,
+    train_iou: float,
+    train_dice: float,
+    val_loss: float,
+    val_iou: float,
+    val_dice: float,
+    lr: float,
+    epoch_time: float,
+) -> None:
+    """
+        Append one epoch result to the training history.
+    """
+
+    history["epoch"].append(epoch)
+    history["train_loss"].append(float(train_loss))
+    history["train_iou"].append(float(train_iou))
+    history["train_dice"].append(float(train_dice))
+    history["val_loss"].append(float(val_loss))
+    history["val_iou"].append(float(val_iou))
+    history["val_dice"].append(float(val_dice))
+    history["lr"].append(float(lr))
+    history["epoch_time"].append(float(epoch_time))
+
+
+def save_history(history: dict[str, list[float | int]], save_dir: str | Path) -> None:
+    """
+        Save per-epoch training history as JSON and CSV.
+    """
+
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    """Save JSON for structured reload."""
+    json_path = save_dir / "results.json"
+    json_path.write_text(
+        json.dumps(history, indent=2, ensure_ascii=True),
+        encoding="utf-8",
+    )
+
+    """Save CSV for quick plotting and spreadsheet review."""
+    csv_path = save_dir / "results.csv"
+    keys = list(history)
+    row_count = len(history["epoch"])
+
+    with csv_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=keys)
+        writer.writeheader()
+
+        for row_index in range(row_count):
+            writer.writerow({
+                key: history[key][row_index]
+                for key in keys
+            })
 
 def train_one_epoch(
     model,
@@ -364,7 +442,7 @@ def main():
 
     """Training Loop"""
     print(f"\nTraining epochs {start_epoch + 1} to {args.epochs}...\n")
-    history = {"train_loss": [], "val_loss": [], "train_iou": [], "val_iou": []}
+    history = create_history()
     training_started = time.perf_counter()
 
     for epoch in range(start_epoch, args.epochs):
@@ -391,13 +469,21 @@ def main():
         scheduler.step()
         elapsed = time.time() - t0
 
-        """Logger"""
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
-        history["train_iou"].append(train_iou)
-        history["val_iou"].append(val_iou)
-
         lr_now = scheduler.get_last_lr()[0]
+        append_history(
+            history=history,
+            epoch=epoch + 1,
+            train_loss=train_loss,
+            train_iou=train_iou,
+            train_dice=train_dice,
+            val_loss=val_loss,
+            val_iou=val_iou,
+            val_dice=val_dice,
+            lr=lr_now,
+            epoch_time=elapsed,
+        )
+        save_history(history, args.save_dir)
+
         print(f"Epoch [{epoch+1:03d}/{args.epochs}] "
               f"| train_loss={train_loss:.4f} train_iou={train_iou:.4f} train_dice={train_dice:.4f} "
               f"| val_loss={val_loss:.4f} val_iou={val_iou:.4f} val_dice={val_dice:.4f} "
@@ -430,6 +516,8 @@ def main():
     print(f"\nTraining complete. Best val IoU: {best_val_iou:.4f}")
     print(f"Total training time: {format_duration(total_training_time)}")
     print(f"Best model saved at: {args.save_dir}/best.pth")
+    save_history(history, args.save_dir)
+    print(f"Training history saved at: {args.save_dir}/results.json")
     return history
 
 

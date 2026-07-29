@@ -188,6 +188,40 @@ def preprocess_patch_batch(
     return tensor.to(device)
 
 
+def preprocess_patch_batch_numpy(patches: list[np.ndarray]) -> np.ndarray:
+    """
+        Convert BGR patches to normalized NCHW float32 numpy batch.
+    """
+
+    """Normalize each patch with the same preprocessing used in training"""
+    batch = []
+
+    for patch in patches:
+        rgb = cv2.cvtColor(patch, cv2.COLOR_BGR2RGB)
+        normalized = (
+            rgb.astype(np.float32) / 255.0 - IMAGENET_MEAN
+        ) / IMAGENET_STD
+        batch.append(normalized.transpose(2, 0, 1))
+
+    """Stack patches into an NCHW numpy batch for exported runtimes"""
+    return np.stack(batch, axis=0).astype(np.float32)
+
+
+def sigmoid_numpy(logits: np.ndarray) -> np.ndarray:
+    """
+        Compute sigmoid in numpy and return float32 probabilities.
+    """
+
+    logits = np.asarray(logits, dtype=np.float32)
+    probabilities = np.empty_like(logits, dtype=np.float32)
+    positive = logits >= 0
+    probabilities[positive] = 1.0 / (1.0 + np.exp(-logits[positive]))
+    exp_logits = np.exp(logits[~positive])
+    probabilities[~positive] = exp_logits / (1.0 + exp_logits)
+
+    return probabilities
+
+
 @torch.no_grad()
 def predict_patch_batch_probability(
     model: torch.nn.Module,
@@ -197,6 +231,30 @@ def predict_patch_batch_probability(
     """
         Predict probability maps for one batch of image patches.
     """
+
+    """Fallback for static-batch ONNX exports that only accept batch size 1"""
+    if (
+        len(patches) > 1
+        and hasattr(model, "supports_batch_size")
+        and not model.supports_batch_size(len(patches))
+    ):
+        probabilities = [
+            predict_patch_batch_probability(
+                model=model,
+                patches=[patch],
+                device=device,
+            )
+            for patch in patches
+        ]
+        return np.concatenate(probabilities, axis=0).astype(np.float32)
+
+    if getattr(model, "supports_numpy", False):
+        """Run exported runtime directly without torch tensor conversion"""
+        input_array = preprocess_patch_batch_numpy(patches)
+        logits = model.predict_logits_numpy(input_array)
+        probabilities = sigmoid_numpy(logits)[:, 0]
+
+        return probabilities.astype(np.float32)
 
     """Preprocess patch batch"""
     tensor = preprocess_patch_batch(
