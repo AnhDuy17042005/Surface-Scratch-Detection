@@ -74,6 +74,7 @@ final label for future YOLO training.
   <img src="assets/sam2_point_1.jpg" alt="SAM2 point prompt step 1" width="410">
   <img src="assets/sam2_point_2.jpg" alt="SAM2 point prompt step 2" width="410">
   <img src="assets/sam2_point_3.jpg" alt="SAM2 point prompt step 3" width="410">
+  <img src="assets/sam2_point_4.jpg" alt="SAM2 point prompt step 4" width="410">
 </p>
 
 ### Box Prompt
@@ -82,6 +83,7 @@ final label for future YOLO training.
   <img src="assets/sam2_box_1.jpg" alt="SAM2 box prompt step 1" width="410">
   <img src="assets/sam2_box_2.jpg" alt="SAM2 box prompt step 2" width="410">
   <img src="assets/sam2_box_3.jpg" alt="SAM2 box prompt step 3" width="410">
+  <img src="assets/sam2_box_4.jpg" alt="SAM2 box prompt step 4" width="410">
 </p>
 
 ## Model Roles
