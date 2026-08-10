@@ -6,7 +6,7 @@ data/**
 !data/**/
 !data/**/.gitkeep
 models/
-outputs/
+outputs/labeling/
 
 *.pt
 *.pth
