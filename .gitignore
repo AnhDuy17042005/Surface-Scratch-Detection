@@ -2,7 +2,9 @@ __pycache__/
 .venv/
 .vscode/
 
-data/
+data/**
+!data/**/
+!data/**/.gitkeep
 models/
 outputs/
 
