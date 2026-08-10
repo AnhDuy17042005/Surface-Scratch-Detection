@@ -1,0 +1,42 @@
+{
+  "model_type": "YOLO component bbox detector",
+  "evaluation_version": 2,
+  "model": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/models/yolo/component/weights/best.pt",
+  "data": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/data/component/data.yaml",
+  "split": "val",
+  "settings": {
+    "imgsz": 640,
+    "batch": 8,
+    "conf": 0.001,
+    "iou": 0.7,
+    "device": "auto",
+    "plots": true,
+    "history": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/models/yolo/component/results.csv"
+  },
+  "bbox": {
+    "precision": 1.0,
+    "recall": 0.9281360315746658,
+    "map50": 0.995,
+    "map75": 0.995,
+    "map50_95": 0.9641428571428572
+  },
+  "fitness": 0.9641428571428572,
+  "speed_ms_per_image": {
+    "preprocess": 1.1341962002916262,
+    "inference": 61.66277980009909,
+    "loss": 0.0004497996997088194,
+    "postprocess": 0.07063240045681596
+  },
+  "elapsed_seconds": 3.463,
+  "training_history": {
+    "source": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/models/yolo/component/results.csv",
+    "epochs": 72,
+    "plot": "plots/training_history.png"
+  },
+  "plots": [
+    "plots/confusion_matrix_normalized.png",
+    "plots/global_metrics_bar.png",
+    "plots/threshold_curves.png",
+    "plots/training_history.png"
+  ]
+}

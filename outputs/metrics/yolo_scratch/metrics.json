@@ -1,0 +1,77 @@
+{
+  "model_type": "YOLO segmentation",
+  "evaluation_version": 2,
+  "model": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/models/yolo/scratch_yolo26n_seg/weights/best.pt",
+  "data": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/data/scratch_patches",
+  "split": "test",
+  "image_count": 200,
+  "settings": {
+    "imgsz": 512,
+    "conf": 0.1,
+    "iou": 0.7,
+    "device": "cpu",
+    "mask_threshold": 0.5,
+    "max_images": null,
+    "plots": true,
+    "history": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/models/yolo/scratch_yolo26n_seg/results.csv",
+    "confidence_min": 0.05,
+    "confidence_max": 0.95,
+    "confidence_step": 0.05
+  },
+  "counts": {
+    "tp": 97269,
+    "fp": 34135,
+    "fn": 21480,
+    "tn": 52275916
+  },
+  "global": {
+    "precision": 0.7402286079571399,
+    "recall": 0.8191142662253998,
+    "specificity": 0.9993474485429196,
+    "iou": 0.6362274665759661,
+    "dice": 0.777676062249903,
+    "pixel_accuracy": 0.9989392280578613
+  },
+  "best_confidences": {
+    "iou": {
+      "confidence": 0.1,
+      "tp": 97269,
+      "fp": 34135,
+      "fn": 21480,
+      "tn": 52275916,
+      "precision": 0.7402286079571399,
+      "recall": 0.8191142662253998,
+      "specificity": 0.9993474485429196,
+      "iou": 0.6362274665759661,
+      "dice": 0.777676062249903,
+      "pixel_accuracy": 0.9989392280578613
+    },
+    "dice": {
+      "confidence": 0.1,
+      "tp": 97269,
+      "fp": 34135,
+      "fn": 21480,
+      "tn": 52275916,
+      "precision": 0.7402286079571399,
+      "recall": 0.8191142662253998,
+      "specificity": 0.9993474485429196,
+      "iou": 0.6362274665759661,
+      "dice": 0.777676062249903,
+      "pixel_accuracy": 0.9989392280578613
+    }
+  },
+  "elapsed_seconds": 17.36772547999999,
+  "milliseconds_per_image": 86.83862739999995,
+  "mean_inference_seconds": 0.06281286071499607,
+  "training_history": {
+    "source": "/media/duy/6218F0F318F0C6D71/StudyDocuments_at_BKU/Projects/Surface-Scratch-Detection/models/yolo/scratch_yolo26n_seg/results.csv",
+    "epochs": 100,
+    "plot": "plots/training_history.png"
+  },
+  "plots": [
+    "plots/confusion_matrix_normalized.png",
+    "plots/global_metrics_bar.png",
+    "plots/threshold_curves.png",
+    "plots/training_history.png"
+  ]
+}
