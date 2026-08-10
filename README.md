@@ -1,34 +1,97 @@
 # Surface Scratch Detection
 
-A surface scratch inspection system built with Ultralytics YOLO26, SAM2-assisted
-labeling, OpenCV, and PySide6. The project focuses on detecting thin scratch
-defects on metal/component surfaces. YOLO component detection first finds the
-main part ROI, then YOLO scratch segmentation runs on ROI tiles to preserve fine
-scratch details without resizing the whole high-resolution image.
+A surface-scratch inspection system built with Ultralytics YOLO26, SAHI, SAM2,
+OpenCV, and PySide6. The system detects the main component first, crops the
+component ROI, then applies SAHI-based sliced inference with a YOLO scratch
+segmentation model to preserve thin scratch details on high-resolution images.
 
-The repository includes dataset preparation, training, evaluation, optimized
-runtime export, command-line inference, and a desktop GUI for annotation,
-training, and prediction review.
+The project includes assisted labeling, dataset preparation, local and Colab
+training, evaluation, inference review, and Docker-based desktop deployment.
 
 ## Pipeline
 
-1. Collect raw surface images under `data/raw/`.
-2. Label scratches in the PySide6 Annotation tab with SAM2 point/box assistance.
-3. Save reviewed image-mask pairs under `outputs/labeling/`.
-4. Prepare a YOLO instance-segmentation dataset directly from labeled masks.
-5. Train YOLO26 scratch segmentation from the GUI, CLI, or Colab notebook.
-6. Detect the component ROI with a component YOLO detector.
-7. Run scratch YOLO segmentation on ROI tiles.
-8. Save overlays, masks, metrics, and optionally send predictions back to the
-   Annotation tab for human correction and future retraining.
+<p align="center">
+  <img src="assets/pipeline.png" alt="Surface scratch detection pipeline" width="900">
+</p>
+
+1. Load a high-resolution surface image from `data/raw/`.
+2. Run the YOLO component detector to locate the main part ROI.
+3. Crop the component ROI instead of resizing the full image directly.
+4. Run SAHI sliced inference on the ROI with the YOLO scratch segmenter.
+5. Merge the sliced predictions into one scratch mask.
+6. Paste the ROI mask back to the original image size.
+7. Review the result in the PySide6 GUI or send it to the Annotation tab for correction.
+
+## Training Workflow
+
+<p align="center">
+  <img src="assets/training_pipeline.png" alt="Surface scratch training pipeline" width="900">
+</p>
+
+1. Collect raw images.
+2. Label scratches with SAM2-assisted point or box prompts.
+3. Save reviewed image-mask pairs to `outputs/labeling/`.
+4. Convert labels directly into YOLO instance-segmentation format.
+5. Train a YOLO26 scratch segmentation model.
+6. Evaluate metrics and inspect plots.
+7. Use model predictions as draft labels for the next data iteration.
+
+## SAHI Inference
+
+<p align="center">
+  <img src="assets/sahi.gif" alt="SAHI sliced inference demonstration" width="760">
+</p>
+
+SAHI stands for Slicing Aided Hyper Inference. In this project, SAHI is not run
+on the full image blindly. It is guided by the component detector:
+
+```text
+full image -> component YOLO -> ROI crop -> SAHI slices -> scratch YOLO -> full-size mask
+```
+
+This keeps the inference area smaller while still avoiding full-image downscaling,
+which can blur thin scratches.
+
+## Prediction Examples
+
+<p align="center">
+  <img src="assets/output_inference.jpg" alt="Surface scratch inference output 1" width="620">
+</p>
+
+<p align="center">
+  <img src="assets/output_inference_2.jpg" alt="Surface scratch inference output 2" width="620">
+</p>
+
+## SAM2-Assisted Annotation
+
+SAM2 is used as an interactive labeling assistant. The user can prompt the model
+with points or boxes, accept the proposed mask, correct it manually, and save the
+final label for future YOLO training.
+
+### Point Prompt
+
+<p align="center">
+  <img src="assets/sam2_point_1.jpg" alt="SAM2 point prompt step 1" width="410">
+  <img src="assets/sam2_point_2.jpg" alt="SAM2 point prompt step 2" width="410">
+  <img src="assets/sam2_point_3.jpg" alt="SAM2 point prompt step 3" width="410">
+</p>
+
+### Box Prompt
+
+<p align="center">
+  <img src="assets/sam2_box_1.jpg" alt="SAM2 box prompt step 1" width="410">
+  <img src="assets/sam2_box_2.jpg" alt="SAM2 box prompt step 2" width="410">
+  <img src="assets/sam2_box_3.jpg" alt="SAM2 box prompt step 3" width="410">
+</p>
 
 ## Model Roles
 
 | Model | Task | Purpose |
 |---|---|---|
-| YOLO component detector | Object detection | Find the component/part bounding box ROI |
-| YOLO scratch segmenter | Instance segmentation | Segment scratch masks inside full images or ROI tiles |
-| SAM2 | Prompt-based segmentation | Assist human labeling and mask correction |
+| YOLO component detector | Object detection | Find the component bounding-box ROI |
+| YOLO scratch segmenter | Instance segmentation | Segment scratch masks inside the ROI |
+| SAHI | Sliced inference | Split the ROI into slices and merge predictions |
+| SAM2 | Prompt-based segmentation | Assist labeling and mask refinement |
 
 ## User Interface
 
@@ -38,23 +101,24 @@ The desktop GUI is implemented with PySide6:
 .venv/bin/python -m src.gui.main
 ```
 
-Tabs:
-
 | Tab | Purpose |
 |---|---|
-| `Inference` | Run component ROI + scratch YOLO inference and send predictions to Annotation |
-| `Training` | Train scratch YOLO26 segmentation with local GPU/CPU settings |
+| `Inference` | Run component-guided SAHI scratch inference and review predictions |
+| `Training` | Train scratch YOLO26 segmentation from the GUI |
 | `Data Processing` | Prepare YOLO datasets from labeled image-mask pairs |
-| `Annotation` | Label or refine scratches with SAM2 point/box prompts, brush, and eraser |
-| `Camera` | Camera/image acquisition utilities |
+| `Annotation` | Label or refine scratches with SAM2, brush, eraser, point, and box tools |
+| `Camera` | Camera and image acquisition utilities |
+
+The Inference tab can send a predicted mask directly to the Annotation tab. This
+allows a worker to correct the prediction and save it as a new training label.
 
 ## Project Structure
 
 ```text
 Surface-Scratch-Detection/
-├── assets/                    # Optional README/demo assets
+├── assets/                    # README images and visual examples
 ├── configs/
-│   ├── data.py                # Split names, image extensions, class schema
+│   ├── data.py                # Dataset splits, image extensions, mask settings
 │   ├── path.py                # Shared project paths
 │   └── yolo.py                # Component and scratch YOLO defaults
 ├── data/
@@ -67,25 +131,23 @@ Surface-Scratch-Detection/
 │   │   ├── component/         # Component detector checkpoint
 │   │   ├── scratch_yolo26n_seg/
 │   │   └── scratch_yolo26s_seg/
-│   └── sam2/                  # SAM2 fine-tuned checkpoint
+│   └── sam2/                  # SAM2 checkpoints
 ├── notebooks/
 │   ├── train_yolo.ipynb       # Google Colab YOLO training workflow
 │   └── train_sam2.ipynb       # Google Colab SAM2 fine-tuning workflow
 ├── outputs/
-│   ├── labeling/              # Human-reviewed images and masks
-│   ├── metrics/               # Evaluation JSON, CSV, and plots
-│   ├── onnx/                  # Optional ONNX runtime experiment outputs
-│   └── yolo/                  # YOLO inference outputs
+│   ├── labeling/              # Reviewed images and masks
+│   ├── metrics/               # Evaluation reports and plots
+│   └── yolo/                  # Inference outputs
 ├── src/
-│   ├── dataset/               # End-to-end dataset preparation pipelines
+│   ├── dataset/               # End-to-end dataset preparation scripts
 │   ├── evaluation/            # YOLO and SAM2 evaluation scripts
 │   ├── gui/                   # Main PySide6 application
-│   ├── onnx/                  # Optional YOLO ONNX export/runtime experiments
-│   ├── openvino/              # YOLO OpenVINO export and benchmark
+│   ├── openvino/              # Optional YOLO OpenVINO export and benchmark
 │   ├── processing/            # Legacy/experimental processing helpers
 │   └── yolo/
-│       ├── component/         # Component detector train/inference/ROI helpers
-│       └── scratch/           # Scratch segmentation train/inference scripts
+│       ├── component/         # Component detector training and inference
+│       └── scratch/           # Scratch segmentation training and inference
 ├── .dockerignore
 ├── Dockerfile
 ├── docker-compose.yml
@@ -94,19 +156,19 @@ Surface-Scratch-Detection/
 ```
 
 `data/`, `models/`, and `outputs/` are runtime artifacts. They are intentionally
-ignored by Git and mounted into Docker containers at runtime.
+kept outside Git because they can be large and machine-specific.
 
 ## Prerequisites
 
 - Python 3.12
 - pip
 - Docker and Docker Compose, optional
-- CUDA-capable GPU, optional for training/inference acceleration
+- CUDA-capable GPU, optional for training acceleration
 - Linux X11 display, required for Docker GUI mode
 
 ## Installation
 
-Create and activate a local virtual environment:
+Create and activate a virtual environment:
 
 ```bash
 python3 -m venv .venv
@@ -115,9 +177,9 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Runtime Artifacts
+## Model Checkpoints
 
-The active local model paths are configured in `configs/yolo.py`:
+Default model paths are configured in `configs/yolo.py`:
 
 ```text
 models/
@@ -135,12 +197,25 @@ models/
     └── checkpoint.pt
 ```
 
-A clean Git clone does not include model weights or datasets. Copy or mount
-`data/`, `models/`, and `outputs/` separately before running full inference.
+A fresh clone does not include datasets or checkpoints. Restore or mount
+`data/`, `models/`, and `outputs/` before running full inference.
+
+## Run the GUI
+
+```bash
+source .venv/bin/activate
+.venv/bin/python -m src.gui.main
+```
+
+Run only the SAHI inference tab for quick testing:
+
+```bash
+.venv/bin/python -m src.gui.sahi
+```
 
 ## Run With Docker
 
-The Docker image contains only code and dependencies. Datasets, checkpoints, and
+The Docker image contains code and dependencies. Datasets, checkpoints, and
 outputs are mounted from the host:
 
 ```text
@@ -165,17 +240,6 @@ Run a CLI command inside the same image:
 
 ```bash
 docker compose --profile cli run --rm surface-scratch-cli
-```
-
-The default CLI command prints scratch YOLO inference help. Override it when
-needed:
-
-```bash
-docker compose --profile cli run --rm surface-scratch-cli \
-  python -m src.yolo.scratch.inference \
-  --source data/raw \
-  --mode sliding \
-  --output-dir outputs/yolo/scratch
 ```
 
 ## Dataset Preparation
@@ -223,6 +287,17 @@ data/scratch_yolo_seg/
   data.yaml
 ```
 
+Optional: also export full-size train/valid/test image-mask splits for
+evaluation:
+
+```bash
+.venv/bin/python -m src.dataset.prepare_yolo_dataset \
+  --src outputs/labeling \
+  --output-root data/scratch_yolo_seg \
+  --split-output-root data/scratch \
+  --overwrite
+```
+
 ### SAM2 Fine-tuning Dataset
 
 Prepare the one-frame SAM2 dataset format:
@@ -236,7 +311,6 @@ Prepare the one-frame SAM2 dataset format:
   --test-ratio 0.10 \
   --patch-size 1024 \
   --overlap 0.25 \
-  --min-pixels 20 \
   --seed 42 \
   --overwrite
 ```
@@ -282,8 +356,8 @@ yolo26l-seg.pt
 yolo26x-seg.pt
 ```
 
-Use `n` for speed-sensitive CPU/local inference. Use larger models only when
-quality gains justify the slower runtime.
+Use `n` for speed-sensitive local inference. Use larger models only when the
+quality gain is worth the slower runtime.
 
 ### Component YOLO Detection
 
@@ -307,8 +381,8 @@ notebooks/train_yolo.ipynb
 notebooks/train_sam2.ipynb
 ```
 
-The notebooks are designed for uploading datasets to Drive, training on Colab,
-and copying checkpoints/plots back to Drive.
+The notebooks are designed for Drive upload, Colab training, training-history
+logging, checkpoint saving, and copying model artifacts back to Drive.
 
 ## Evaluation
 
@@ -316,8 +390,9 @@ and copying checkpoints/plots back to Drive.
 
 ```bash
 .venv/bin/python -m src.evaluation.yolo_scratch \
-  --data data/scratch_yolo_seg \
-  --split test
+  --data data/scratch \
+  --split test \
+  --model models/yolo/scratch_yolo26n_seg/weights/best.pt
 ```
 
 Outputs are saved under:
@@ -329,8 +404,8 @@ outputs/metrics/yolo_scratch/
 Typical outputs include:
 
 - `summary.json`
-- threshold curves
 - metric bar plots
+- confidence-threshold curves
 - confusion matrix plots
 - prediction visualizations
 
@@ -338,7 +413,9 @@ Typical outputs include:
 
 ```bash
 .venv/bin/python -m src.evaluation.yolo_component \
-  --data data/component/data.yaml
+  --data data/component/data.yaml \
+  --split val \
+  --model models/yolo/component/weights/best.pt
 ```
 
 Outputs are saved under:
@@ -363,9 +440,32 @@ outputs/metrics/sam2/
 
 ## Inference
 
-### Scratch YOLO Full Image or Sliding Tiles
+### GUI SAHI Inference
 
-Run scratch segmentation on raw images:
+The main inference path is the PySide6 GUI:
+
+```bash
+.venv/bin/python -m src.gui.main
+```
+
+The active Inference tab uses:
+
+```text
+component YOLO -> ROI crop -> SAHI sliced scratch YOLO -> full-size mask/overlay
+```
+
+### Component Detection CLI
+
+```bash
+.venv/bin/python -m src.yolo.component.inference \
+  --source data/raw \
+  --model models/yolo/component/weights/best.pt \
+  --output-dir outputs/yolo/component
+```
+
+### Scratch Segmentation CLI
+
+The scratch CLI is kept for standalone experiments:
 
 ```bash
 .venv/bin/python -m src.yolo.scratch.inference \
@@ -379,34 +479,13 @@ Run scratch segmentation on raw images:
   --output-dir outputs/yolo/scratch
 ```
 
-The sliding mode preserves thin-scratch detail by avoiding direct full-image
-downscaling.
-
-### Component Detection
-
-```bash
-.venv/bin/python -m src.yolo.component.inference \
-  --source data/raw \
-  --model models/yolo/component/weights/best.pt \
-  --output-dir outputs/yolo/component
-```
-
-### GUI ROI Inference
-
-The GUI Inference tab combines both models:
-
-```text
-component YOLO -> ROI boxes -> scratch YOLO tiles -> full-size mask/overlay
-```
-
-It can also send a predicted mask to the Annotation tab so a worker can refine
-the prediction and save it as a new training label.
+The production-facing GUI path uses SAHI through `src/gui/sahi.py`.
 
 ## Export and Runtime Optimization
 
 ### OpenVINO
 
-OpenVINO is the preferred optimized backend for CPU deployment:
+OpenVINO export is available for CPU deployment experiments:
 
 ```bash
 .venv/bin/python -m src.openvino.yolo_export \
@@ -414,7 +493,7 @@ OpenVINO is the preferred optimized backend for CPU deployment:
   --imgsz 512
 ```
 
-Benchmark PyTorch vs OpenVINO:
+Benchmark PyTorch and OpenVINO:
 
 ```bash
 .venv/bin/python -m src.openvino.evaluation \
@@ -423,38 +502,32 @@ Benchmark PyTorch vs OpenVINO:
   --repeat 3
 ```
 
-### ONNX
-
-ONNX export/runtime experiments live in `src/onnx/`. They are optional and are
-not the default deployment path. OpenVINO is recommended for the current local
-CPU-focused GUI pipeline.
-
 ## Configuration
 
 | File | Purpose |
 |---|---|
-| `configs/path.py` | Project root, `data/`, `models/`, `outputs/`, metrics, labeling paths |
-| `configs/data.py` | Split names, image extensions, binary mask values, labeling paths |
-| `configs/yolo.py` | Component and scratch YOLO datasets, checkpoints, thresholds, training defaults |
+| `configs/path.py` | Project root, `data/`, `models/`, `outputs/`, metrics, and labeling paths |
+| `configs/data.py` | Split names, image extensions, binary masks, and labeling paths |
+| `configs/yolo.py` | Component and scratch YOLO datasets, checkpoints, thresholds, and training defaults |
 
 ## Important Paths
 
 | Path | Description |
 |---|---|
 | `data/raw/` | Original camera/raw images |
-| `outputs/labeling/images/` | Labeled source images |
-| `outputs/labeling/masks/` | Labeled binary masks |
+| `outputs/labeling/images/` | Reviewed source images |
+| `outputs/labeling/masks/` | Reviewed binary masks |
 | `data/scratch_yolo_seg/` | YOLO scratch segmentation dataset |
 | `data/scratch_sam2_format/` | SAM2 fine-tuning dataset |
 | `models/yolo/` | YOLO checkpoints |
 | `models/sam2/` | SAM2 checkpoints |
-| `outputs/yolo/` | YOLO inference outputs |
+| `outputs/yolo/` | Inference outputs |
 | `outputs/metrics/` | Evaluation outputs |
 
 ## Git and Artifact Policy
 
-The repository is intended to track source code, configs, notebooks, Docker
-files, and documentation. Large runtime artifacts are ignored:
+The repository should track source code, configs, notebooks, Docker files, and
+documentation. Large runtime artifacts are ignored:
 
 ```text
 data/
@@ -469,14 +542,15 @@ outputs/
 *.engine
 ```
 
-To reproduce a full local run from a fresh clone, restore the required
-`data/` and `models/` folders separately.
+To reproduce a full local run from a fresh clone, restore the required `data/`
+and `models/` folders separately.
 
 ## Tech Stack
 
 - Python 3.12
 - PySide6
 - Ultralytics YOLO26
+- SAHI
 - SAM2
 - PyTorch
 - Torchvision
@@ -484,6 +558,5 @@ To reproduce a full local run from a fresh clone, restore the required
 - NumPy
 - Albumentations
 - Matplotlib
-- OpenVINO
-- ONNX Runtime, optional experiment backend
+- OpenVINO, optional runtime experiment
 - Docker / Docker Compose

@@ -1,0 +1,10 @@
+PySide6
+numpy
+opencv-python
+torch
+torchvision
+albumentations
+tqdm
+onnxruntime
+ultralytics
+sahi

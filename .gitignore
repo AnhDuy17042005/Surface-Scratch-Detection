@@ -1,0 +1,17 @@
+__pycache__/
+.venv/
+.vscode/
+
+data/
+models/
+outputs/
+
+*.pt
+*.pth
+*.onnx
+*.xml
+*.bin
+*.engine
+
+.agents/
+.codex/

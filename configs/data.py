@@ -3,14 +3,14 @@
 from configs.path import DATA_DIR, OUTPUTS_DIR
 
 
-"""Dataset split names used by U-Net training and evaluation"""
+"""Dataset split names used by training and evaluation"""
 SPLITS = ("train", "valid", "test")
 
 """Supported image and mask formats"""
 IMAGE_EXTENSIONS = frozenset({".bmp", ".png", ".jpg", ".jpeg", ".webp"})
 MASK_EXTENSION   = ".png"
 
-"""Main U-Net dataset"""
+"""Default scratch patch dataset used by legacy/evaluation scripts"""
 SCRATCH_DATASET = DATA_DIR / "scratch_patches"
 SCRATCH_TRAIN_DATASET = SCRATCH_DATASET
 

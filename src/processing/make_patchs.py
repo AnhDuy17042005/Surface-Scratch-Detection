@@ -2,7 +2,7 @@
     Offline sliding-window patch generator for scratch segmentation.
 
     This script converts full-resolution image/mask pairs into fixed-size
-    patches for U-Net training. Image and mask patches are always cropped with
+    segmentation patches. Image and mask patches are always cropped with
     exactly the same coordinates.
 """
 
@@ -25,7 +25,11 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from configs.data import IMAGE_EXTENSIONS, SCRATCH_TRAIN_DATASET, SPLITS
-from configs.unet import UNET_TILE_OVERLAP, UNET_TILE_SIZE
+
+
+DEFAULT_PATCH_SIZE = 512
+DEFAULT_PATCH_OVERLAP = 0.25
+OUTPUT_IMAGE_EXTENSION = ".png"
 
 
 @dataclass(frozen=True)
@@ -261,7 +265,7 @@ def save_patch(
     mask_patch = mask[y1:y2, x1:x2]
 
     """Write patch files"""
-    image_path = out_image_dir / f"{record.output_stem}.jpg"
+    image_path = out_image_dir / f"{record.output_stem}{OUTPUT_IMAGE_EXTENSION}"
     mask_path = out_mask_dir / f"{record.output_stem}.png"
 
     if not cv2.imwrite(str(image_path), image_patch):
@@ -419,7 +423,7 @@ def parse_args() -> argparse.Namespace:
 
     """Build parser"""
     parser = argparse.ArgumentParser(
-        description="Create sliding-window patches for scratch U-Net training."
+        description="Create sliding-window patches for scratch segmentation."
     )
 
     """Input and output paths"""
@@ -427,8 +431,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dst", type=Path, default=Path("data/scratch_patches"))
 
     """Patch settings"""
-    parser.add_argument("--patch-size", type=int, default=UNET_TILE_SIZE)
-    parser.add_argument("--overlap", type=float, default=UNET_TILE_OVERLAP)
+    parser.add_argument("--patch-size", type=int, default=DEFAULT_PATCH_SIZE)
+    parser.add_argument("--overlap", type=float, default=DEFAULT_PATCH_OVERLAP)
 
     """Negative sampling settings"""
     parser.add_argument("--train-negative-ratio", type=float, default=1.0)

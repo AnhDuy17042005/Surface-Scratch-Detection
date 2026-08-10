@@ -1,0 +1,38 @@
+services:
+  surface-scratch-gui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: surface-scratch-detection:latest
+    container_name: surface-scratch-detection-gui
+    working_dir: /app
+    command: python -m src.gui.main
+    environment:
+      DISPLAY: ${DISPLAY}
+      QT_X11_NO_MITSHM: "1"
+      MPLCONFIGDIR: /tmp/matplotlib
+      XDG_RUNTIME_DIR: /tmp/runtime-root
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    ipc: host
+    stdin_open: true
+    tty: true
+    restart: "no"
+
+  surface-scratch-cli:
+    image: surface-scratch-detection:latest
+    profiles:
+      - cli
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: python -m src.yolo.scratch.inference --help
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    restart: "no"
