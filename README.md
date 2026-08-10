@@ -39,7 +39,7 @@ training, evaluation, inference review, and Docker-based desktop deployment.
 ## SAHI Inference
 
 <p align="center">
-  <img src="assets/sahi.gif" alt="SAHI sliced inference demonstration" width="760">
+  <img src="assets/scratch_sahi.gif" alt="SAHI sliced inference over a scratch image" width="760">
 </p>
 
 SAHI stands for Slicing Aided Hyper Inference. In this project, SAHI is not run
