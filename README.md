@@ -181,6 +181,12 @@ python -m pip install -r requirements.txt
 
 ## Model Checkpoints
 
+Download the `models/` folder from Google Drive:
+
+- [Google Drive - Surface Scratch models](https://drive.google.com/drive/folders/1Bt6NAuJDY-BS2GMsGuOOq0tlUBjJ3uGX?usp=sharing)
+
+Place the downloaded `models/` folder at the project root so the checkpoint paths match the default configuration.
+
 Default model paths are configured in `configs/yolo.py`:
 
 ```text
