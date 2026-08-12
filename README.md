@@ -195,10 +195,7 @@ models/
 │   ├── component/
 │   │   └── weights/
 │   │       └── best.pt
-│   ├── scratch_yolo26n_seg/
-│   │   └── weights/
-│   │       └── best.pt
-│   └── scratch_yolo26s_seg/
+│   └── scratch_yolo26n_seg/
 │       └── weights/
 │           └── best.pt
 └── sam2/
